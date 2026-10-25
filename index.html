@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rhythmic Steps</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d17; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const APPEAR = 350, HOLD = 900, DROP = 250, MORPH = 900; // ms
+  const ease = t => t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  let hue = rand(0, 360);
+
+  // Build a chain of tangent circles shrinking by ratio k, starting at (x, y) with radius r0.
+  function chain(x, y, r0, angle, k, n) {
+    const out = [];
+    let cx = x, cy = y, r = r0;
+    for (let i = 0; i < n; i++) {
+      out.push({ x: cx, y: cy, r });
+      const nr = r * k;
+      cx += Math.cos(angle) * (r + nr);
+      cy += Math.sin(angle) * (r + nr);
+      r = nr;
+    }
+    return out;
+  }
+  const fits = c => c.every(o => o.x - o.r >= 0 && o.x + o.r <= W && o.y - o.r >= 0 && o.y + o.r <= H);
+
+  // Pick a new orientation/size/count whose chain stays on screen.
+  function plan(x, y, r0) {
+    const maxR = Math.min(W, H) * 0.3;
+    for (let tries = 0; tries < 200; tries++) {
+      const k = rand(0.68, 0.85), n = Math.floor(rand(6, 10));
+      const r = Math.min(r0 || rand(maxR * 0.5, maxR), maxR);
+      const angle = rand(0, Math.PI * 2);
+      const c = chain(x, y, r, angle, k, n);
+      if (fits(c)) return c;
+    }
+    return null;
+  }
+
+  function startSequence(prev) {
+    let circles = null;
+    if (prev) {
+      // The grown circle is the first circle of the next sequence, with a new size.
+      const x = prev.x, y = prev.y;
+      const maxR = Math.min(x, W - x, y, H - y);
+      const target = Math.min(maxR, Math.min(W, H) * rand(0.1, 0.3));
+      circles = plan(x, y, target);
+      if (!circles) circles = chain(x, y, Math.max(8, maxR * 0.5), rand(0, 7), 0.7, 5);
+    } else {
+      const m = Math.min(W, H) * 0.2;
+      circles = plan(rand(m, W - m), rand(m, H - m));
+      if (!circles) circles = chain(W / 2, H / 2, m / 2, 0, 0.7, 5);
+    }
+    hue = (hue + rand(30, 90)) % 360;
+    return { circles, hue, start: performance.now(), startR: prev ? prev.startR : null };
+  }
+
+  function draw(c, x, y, r, alpha, h) {
+    if (r <= 0.5 || alpha <= 0) return;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${h}, 80%, 60%, 0.35)`;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `hsl(${h}, 90%, 75%)`;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  let seq = startSequence(null);
+
+  function frame(now) {
+    ctx.clearRect(0, 0, W, H);
+    const cs = seq.circles, n = cs.length;
+    const t = now - seq.start;
+    const tAppear = n * APPEAR;
+    const tDropStart = tAppear + HOLD;
+    // circles 0..n-2 drop out in sequence (largest first), smallest morphs afterwards
+    const tDropEnd = tDropStart + (n - 1) * DROP + DROP;
+    const tEnd = tDropEnd + MORPH;
+    const last = cs[n - 1];
+
+    for (let i = 0; i < n; i++) {
+      const c = cs[i];
+      let r = c.r * ease((t - i * APPEAR) / APPEAR);
+      if (seq.carry && i === 0) r = c.r; // inherited circle already visible
+      if (i < n - 1) {
+        const d = ease((t - tDropStart - i * DROP) / DROP);
+        r *= 1 - d;
+      }
+      draw(ctx, c.x, c.y, r, 1, seq.hue);
+    }
+
+    // Smallest circlet grows into the seed circle of the next sequence.
+    if (t > tDropStart + (n - 2) * DROP) {
+      if (!seq.next) {
+        seq.next = startSequence({ x: last.x, y: last.y, startR: last.r });
+        seq.next.carry = true;
+      }
+      const g = ease((t - tDropStart - (n - 2) * DROP) / (tEnd - tDropStart - (n - 2) * DROP));
+      const nr = seq.next.circles[0].r;
+      const r = last.r + (nr - last.r) * g;
+      if (t < tEnd) draw(ctx, last.x, last.y, r, 1, seq.hue + (seq.next.hue - seq.hue) * g);
+    }
+
+    if (t >= tEnd && seq.next) {
+      seq = seq.next;
+      seq.start = now;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
