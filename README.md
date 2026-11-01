@@ -8,6 +8,7 @@ Open `index.html` (or host with GitHub Pages: Settings → Pages → deploy from
 |----|-------------|
 | `balls-in-a-line` | A chain of circlets appears one by one, then drops out in order while the smallest grows into the first circle of the next chain. |
 | `curved-balls` | Chains that bend along a gentle curve. Several chains overlap; new ones keep appearing while old ones fade later, either one ball at a time or all at once, quickly or slowly. |
+| `dawn-horizon-lights` | Photo-inspired ambient horizon scene with layered silhouettes, soft glow beams, and drifting particles. |
 
 ## Rotation
 
