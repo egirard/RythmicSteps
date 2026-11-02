@@ -11,9 +11,7 @@ Open `index.html` (or host with GitHub Pages: Settings → Pages → deploy from
 
 ## Rotation
 
-The **most recently added** saver (last script in `index.html`) is shown first, to make
-development and debugging easy. After about a minute the page crossfades to another
-saver, chosen in random order without immediate repeats.
+The **most recently added** saver (last script in `index.html`) is shown first, to make development and debugging easy. After about a minute the page crossfades to another saver, chosen in random order without immediate repeats.
 
 URL options:
 - `?saver=curved-balls` pins a single saver (no rotation)
@@ -23,3 +21,10 @@ URL options:
 
 1. Create `savers/<id>.js` calling `Savers.register({ id, name, create(ctx, size) { return { frame(now) {} } } })`.
 2. Add a `<script>` tag for it in `index.html` after the existing savers (last = shown first).
+
+## Development notes
+
+- Keep each saver self-contained in `savers/<id>.js`.
+- A saver should draw a full frame every animation tick and avoid relying on stale canvas pixels.
+- Keep motion timing constants near the top of each saver for easier tuning.
+- Prefer deterministic IDs (`id`) and human names (`name`) so query param debugging remains stable.
